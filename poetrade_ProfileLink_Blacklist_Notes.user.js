@@ -3,12 +3,13 @@
 // @description Adds view profile button to poe.trade search results and allows to blacklist user + add notes.
 // @include     http://poe.trade/*
 // @include     https://poe.trade/*
-// @version     1.2
+// @version     1.3
 // @author      MisaMisa, kylegetsspam, KHS_aAa, pollyzoid
 // @run-at      document-end
 // @grant       GM_getValue
 // @grant       GM_setValue
 // @grant       GM_deleteValue
+// @require     http://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js
 // ==/UserScript==
 
 var forum_thread_id = 1741446;
@@ -147,119 +148,119 @@ var updateAllElements = function(target_function, target_profile_name) {
     }
 };
 
-// Block button handler
-$(document).on('click', '.block-btn', function() {
-    var item = $(this).parents(".item");
-    var profile_name = item.data("seller");
+$(document).ready(function() {
+    // Block button handler
+    $(document).on('click', '.block-btn', function() {
+        var item = $(this).parents(".item");
+        var profile_name = item.data("seller");
 
-    if (isProfileBlacklisted(profile_name)) {
-        unblacklistProfile(profile_name);
-    } else {
-        blacklistProfile(profile_name);
-    }
-
-    // Update all elements
-    updateAllElements(updateBlackListStatus, profile_name);
-});
-
-// Note button handler
-$(document).on('click', '.note-btn', function() {
-    var item = $(this).parents(".item");
-    var profile_name = item.data("seller");
-
-    var note = prompt('Enter custom note:', getProfileCustomNote(profile_name));
-
-    if (note !== null) {
-        note = note.trim();
-
-        if (note === "") {
-            deleteProfileCustomNote(profile_name);
+        if (isProfileBlacklisted(profile_name)) {
+            unblacklistProfile(profile_name);
         } else {
-            setProfileCustomNote(profile_name, note);
+            blacklistProfile(profile_name);
         }
 
         // Update all elements
-        updateAllElements(updateCustomNoteStatus, profile_name);
-    }
-});
+        updateAllElements(updateBlackListStatus, profile_name);
+    });
 
-// Global buttons
-(function() {
-    var temp_string = '<table class="search-results"><tbody><tr><td><ul class="proplist"><li><a href="#" onclick="return false" class="global-block-btn">Block profile</a></li><li><a href="#" onclick="return false" class="global-unblock-btn">Unblock profile</a></li><li><a href="#" onclick="return false" class="global-note-btn">Edit profile note</a></li><li><a href="#" onclick="return false" class="global-info-btn">View stored profile info</a></li><li><a href="https://www.pathofexile.com/forum/view-thread/' + forum_thread_id + '" target="_blank">Script forum thread</a></li></ul></td></tr></tbody></table>';
 
-    document.querySelector('.protip').insertAdjacentHTML('afterend', temp_string);
-})();
+    // Note button handler
+    $(document).on('click', '.note-btn', function() {
+        var item = $(this).parents(".item");
+        var profile_name = item.data("seller");
 
-// Global block button handler
-$(document).on('click', '.global-block-btn', function() {
-    var profile_name = prompt('Enter profile name you want to block:', '');
+        var note = prompt('Enter custom note:', getProfileCustomNote(profile_name));
 
-    if (profile_name !== null) {
-        profile_name = profile_name.trim();
+        if (note !== null) {
+            note = note.trim();
 
-        if (profile_name !== "") {
-            blacklistProfile(profile_name);
-
-            // Update all elements
-            updateAllElements(updateBlackListStatus, profile_name);
-        }
-    }
-});
-
-// Global unblock button handler
-$(document).on('click', '.global-unblock-btn', function() {
-    var profile_name = prompt('Enter profile name you want to unblock:', '');
-
-    if (profile_name !== null) {
-        profile_name = profile_name.trim();
-
-        if (profile_name !== "") {
-            unblacklistProfile(profile_name);
+            if (note === "") {
+                deleteProfileCustomNote(profile_name);
+            } else {
+                setProfileCustomNote(profile_name, note);
+            }
 
             // Update all elements
-            updateAllElements(updateBlackListStatus, profile_name);
+            updateAllElements(updateCustomNoteStatus, profile_name);
         }
-    }
-});
+    });
 
-// Global edit note button handler
-$(document).on('click', '.global-note-btn', function() {
-    var profile_name = prompt('Enter profile name:', '');
+    // Global block button handler
+    $(document).on('click', '.global-block-btn', function() {
+        var profile_name = prompt('Enter profile name you want to block:', '');
 
-    if (profile_name !== null) {
-        profile_name = profile_name.trim();
+        if (profile_name !== null) {
+            profile_name = profile_name.trim();
 
-        if (profile_name !== "") {
-            var note = prompt('Enter custom note for ' + profile_name + ':', getProfileCustomNote(profile_name));
-
-            if (note !== null) {
-                note = note.trim();
-
-                if (note === "") {
-                    deleteProfileCustomNote(profile_name);
-                } else {
-                    setProfileCustomNote(profile_name, note);
-                }
+            if (profile_name !== "") {
+                blacklistProfile(profile_name);
 
                 // Update all elements
-                updateAllElements(updateCustomNoteStatus, profile_name);
+                updateAllElements(updateBlackListStatus, profile_name);
             }
         }
-    }
-});
+    });
 
-// Global view stored info button handler
-$(document).on('click', '.global-info-btn', function() {
-    var profile_name = prompt('Enter profile name:', '');
+    // Global unblock button handler
+    $(document).on('click', '.global-unblock-btn', function() {
+        var profile_name = prompt('Enter profile name you want to unblock:', '');
 
-    if (profile_name !== null) {
-        profile_name = profile_name.trim();
+        if (profile_name !== null) {
+            profile_name = profile_name.trim();
 
-        if (profile_name !== "") {
-            var is_blocked = isProfileBlacklisted(profile_name);
-            var note = getProfileCustomNote(profile_name);
+            if (profile_name !== "") {
+                unblacklistProfile(profile_name);
 
-            alert('Profile ' + profile_name + ' is ' + (is_blocked ? '' : 'not ') + 'blocked. Custom note' + (note === "" ? ' not set.' : ': ' + note));
+                // Update all elements
+                updateAllElements(updateBlackListStatus, profile_name);
+            }
         }
-    }
+    });
+
+    // Global edit note button handler
+    $(document).on('click', '.global-note-btn', function() {
+        var profile_name = prompt('Enter profile name:', '');
+
+        if (profile_name !== null) {
+            profile_name = profile_name.trim();
+
+            if (profile_name !== "") {
+                var note = prompt('Enter custom note for ' + profile_name + ':', getProfileCustomNote(profile_name));
+
+                if (note !== null) {
+                    note = note.trim();
+
+                    if (note === "") {
+                        deleteProfileCustomNote(profile_name);
+                    } else {
+                        setProfileCustomNote(profile_name, note);
+                    }
+
+                    // Update all elements
+                    updateAllElements(updateCustomNoteStatus, profile_name);
+                }
+            }
+        }
+    });
+
+    // Global view stored info button handler
+    $(document).on('click', '.global-info-btn', function() {
+        var profile_name = prompt('Enter profile name:', '');
+
+        if (profile_name !== null) {
+            profile_name = profile_name.trim();
+
+            if (profile_name !== "") {
+                var is_blocked = isProfileBlacklisted(profile_name);
+                var note = getProfileCustomNote(profile_name);
+
+                alert('Profile ' + profile_name + ' is ' + (is_blocked ? '' : 'not ') + 'blocked. Custom note' + (note === "" ? ' not set.' : ': ' + note));
+            }
+        }
+    });
+
+    // Global buttons
+    var temp_string = '<table class="search-results"><tbody><tr><td><ul class="proplist"><li><a href="#" onclick="return false" class="global-block-btn">Block profile</a></li><li><a href="#" onclick="return false" class="global-unblock-btn">Unblock profile</a></li><li><a href="#" onclick="return false" class="global-note-btn">Edit profile note</a></li><li><a href="#" onclick="return false" class="global-info-btn">View stored profile info</a></li><li><a href="https://www.pathofexile.com/forum/view-thread/' + forum_thread_id + '" target="_blank">Script forum thread</a></li></ul></td></tr></tbody></table>';
+    document.querySelector('.protip').insertAdjacentHTML('afterend', temp_string);
 });
