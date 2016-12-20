@@ -193,12 +193,12 @@ $(document).ready(function() {
     $(document).on('click', '.block-btn', function() {
         var item = $(this).parents(".item");
         var profile_name = item.data("seller");
-        if (profile_name == null) {
+        if (profile_name === null) {
             var currency_item = $(this).parents(".displayoffer");
             profile_name = currency_item.data('username');
         }
 
-        if (profile_name == null) {
+        if (profile_name === null) {
             return;
         }
 
@@ -216,12 +216,12 @@ $(document).ready(function() {
     $(document).on('click', '.note-btn', function() {
         var item = $(this).parents(".item");
         var profile_name = item.data("seller");
-        if (profile_name == null) {
+        if (profile_name === null) {
             var currency_item = $(this).parents(".displayoffer");
             profile_name = currency_item.data('username');
         }
 
-        if (profile_name == null) {
+        if (profile_name === null) {
             return;
         }
 
