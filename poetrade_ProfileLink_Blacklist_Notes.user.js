@@ -2,8 +2,10 @@
 // @name        poe.trade View Profile + Blacklist + Custom notes
 // @description Adds view profile button to poe.trade search results and allows to blacklist user + add notes.
 // @include     http://poe.trade/*
+// @include     http://currency.poe.trade/*
 // @include     https://poe.trade/*
-// @version     1.3
+// @include     https://currency.poe.trade/*
+// @version     1.4
 // @author      MisaMisa, kylegetsspam, KHS_aAa, pollyzoid
 // @run-at      document-end
 // @grant       GM_getValue
@@ -38,27 +40,49 @@ var deleteProfileCustomNote = function(profile_name) {
     GM_deleteValue("customNote_" + profile_name);
 };
 
+var isPlayerRussian = function(ign_name) {
+    if (ign_name !== null) {
+        if (ign_name.length > 0) {
+            // It's enough to test first symbol only
+            return /^[\u0400-\u04FF]/.test(ign_name);
+        }
+    }
+
+    return false;
+};
+
 var updateTradeItemNodes = function(results) {
     Array.prototype.forEach.call(results.querySelectorAll('.item'), function(item) {
         var profile_name = item.getAttribute('data-seller');
         var ign_name = item.getAttribute('data-ign');
-
-        // Detect if russian
-        var is_russian = false;
-        if (ign_name !== null) {
-            if (ign_name.length > 0) {
-                // It's enough to test first symbol only
-                is_russian = /^[\u0400-\u04FF]/.test(ign_name);
-            }
-        }
-
+        var is_russian = isPlayerRussian(ign_name);
         var is_blocked = isProfileBlacklisted(profile_name);
         var custom_note = getProfileCustomNote(profile_name);
 
-        var temp_string = '<ul class="proplist">' + (is_russian ? '<li><img src="http://i.imgur.com/tRDP5C9.png" alt="RU" title="This player is russian"></li>' : '') + '<li><a href="https://www.pathofexile.com/account/view-profile/' + profile_name + '" target="_blank" title="Click to open profile link in new tab">View profile</a></li><li><a href="#" onclick="return false" class="block-btn">' + (is_blocked ? 'Unblock' : 'Block') + '</a></li><li><a href="#" onclick="return false" class="note-btn" title="Click to edit">' + (custom_note === "" ? 'Edit note' : custom_note) + '</a></li></ul>';
+        var temp_string = '<ul class="filterlist">' + (is_russian ? '<li><img src="http://i.imgur.com/tRDP5C9.png" alt="RU" title="This player is russian"></li>' : '') + '<li><a href="https://www.pathofexile.com/account/view-profile/' + profile_name + '" target="_blank" title="Click to open profile link in new tab">View profile</a></li><li><a href="#" onclick="return false" class="block-btn">' + (is_blocked ? 'Unblock' : 'Block') + '</a></li><li><a href="#" onclick="return false" class="note-btn" title="Click to edit">' + (custom_note === "" ? 'Edit note' : custom_note) + '</a></li></ul>';
 
         // Buttons
         item.querySelector('.bottom-row .third-cell').insertAdjacentHTML('beforeend', temp_string);
+
+        // Adjust opacity
+        if (is_blocked) {
+            item.style.opacity = 0.25;
+        }
+    });
+};
+
+var updateCurrencyTradeItemNodes = function(results) {
+    Array.prototype.forEach.call(results, function(item) {
+        var profile_name = item.getAttribute('data-username');
+        var ign_name = item.getAttribute('data-ign');
+        var is_russian = isPlayerRussian(ign_name);
+        var is_blocked = isProfileBlacklisted(profile_name);
+        var custom_note = getProfileCustomNote(profile_name);
+
+        var temp_string = (is_russian ? '<img src="http://i.imgur.com/tRDP5C9.png" alt="RU" title="This player is russian"> � ' : '') + '<a href="https://www.pathofexile.com/account/view-profile/' + profile_name + '" target="_blank" title="Click to open profile link in new tab">View profile</a> � <a href="#" onclick="return false" class="block-btn">' + (is_blocked ? 'Unblock' : 'Block') + '</a> � <a href="#" onclick="return false" class="note-btn" title="Click to edit">' + (custom_note === "" ? 'Edit note' : custom_note) + '</a> � ';
+
+        // Buttons
+        item.querySelector('.right').insertAdjacentHTML('afterbegin', temp_string);
 
         // Adjust opacity
         if (is_blocked) {
@@ -78,11 +102,21 @@ var observer = new MutationObserver(function(mutations) {
     });
 });
 
+// Header buttons
+var temp_string = '<style type="text/css" id="filter-css">ul.filterlist{list-style-type:none;margin:0;padding:0}.filterlist li{display:inline}.filterlist li:after{content:" � "}.filterlist li:last-child:after{content:""}</style><table class="search-results"><tbody><tr><td><ul class="filterlist"><li><a href="#" onclick="return false" class="global-block-btn">Block profile</a></li><li><a href="#" onclick="return false" class="global-unblock-btn">Unblock profile</a></li><li><a href="#" onclick="return false" class="global-note-btn">Edit profile note</a></li><li><a href="#" onclick="return false" class="global-info-btn">View stored profile info</a></li><li><a href="https://www.pathofexile.com/forum/view-thread/' + forum_thread_id + '" target="_blank">Script forum thread</a></li></ul></td></tr></tbody></table>';
+document.querySelector('.protip').insertAdjacentHTML('afterend', temp_string);
+
 // Append everything to search results
-var target = document.getElementsByClassName('search-results-block')[0];
-if (target) {
-    observer.observe(target, { childList: true });
-    updateTradeItemNodes(target);
+var all_elements = document.getElementsByClassName('search-results-block')[0];
+if (all_elements) {
+    observer.observe(all_elements, { childList: true });
+    updateTradeItemNodes(all_elements);
+}
+
+// Append everything to currency search results
+var currency_elements = document.getElementsByClassName('displayoffer');
+if (currency_elements) {
+    updateCurrencyTradeItemNodes(currency_elements);
 }
 
 // Live search
@@ -91,9 +125,9 @@ if (live_items) {
     observer.observe(live_items, { childList: true });
 }
 
-var updateBlackListStatus = function(results, target_profile_name) {
-    Array.prototype.forEach.call(results.querySelectorAll('.item'), function(item) {
-        var profile_name = item.getAttribute('data-seller');
+var updateBlackListStatus = function(results, target_profile_name, is_currency_item) {
+    Array.prototype.forEach.call(is_currency_item ? results : results.querySelectorAll('.item'), function(item) {
+        var profile_name = item.getAttribute(is_currency_item ? 'data-username' : 'data-seller');
 
         if (profile_name !== target_profile_name) {
             return;
@@ -116,9 +150,9 @@ var updateBlackListStatus = function(results, target_profile_name) {
     });
 };
 
-var updateCustomNoteStatus = function(results, target_profile_name) {
-    Array.prototype.forEach.call(results.querySelectorAll('.item'), function(item) {
-        var profile_name = item.getAttribute('data-seller');
+var updateCustomNoteStatus = function(results, target_profile_name, is_currency_item) {
+    Array.prototype.forEach.call(is_currency_item ? results : results.querySelectorAll('.item'), function(item) {
+        var profile_name = item.getAttribute(is_currency_item ? 'data-username' : 'data-seller');
 
         if (profile_name !== target_profile_name) {
             return;
@@ -138,13 +172,19 @@ var updateAllElements = function(target_function, target_profile_name) {
     // Static items
     var all_elements_target = document.getElementsByClassName('search-results-block')[0];
     if (all_elements_target) {
-        target_function(all_elements_target, target_profile_name);
+        target_function(all_elements_target, target_profile_name, false);
+    }
+
+    // Currency static items
+    var currency_elements_target = document.getElementsByClassName('displayoffer');
+    if (currency_elements_target) {
+        target_function(currency_elements_target, target_profile_name, true);
     }
 
     // Live items
     var live_items_target = document.getElementById('items');
     if (live_items_target) {
-        target_function(live_items_target, target_profile_name);
+        target_function(live_items_target, target_profile_name, false);
     }
 };
 
@@ -153,6 +193,14 @@ $(document).ready(function() {
     $(document).on('click', '.block-btn', function() {
         var item = $(this).parents(".item");
         var profile_name = item.data("seller");
+        if (profile_name == null) {
+            var currency_item = $(this).parents(".displayoffer");
+            profile_name = currency_item.data('username');
+        }
+
+        if (profile_name == null) {
+            return;
+        }
 
         if (isProfileBlacklisted(profile_name)) {
             unblacklistProfile(profile_name);
@@ -164,11 +212,18 @@ $(document).ready(function() {
         updateAllElements(updateBlackListStatus, profile_name);
     });
 
-
     // Note button handler
     $(document).on('click', '.note-btn', function() {
         var item = $(this).parents(".item");
         var profile_name = item.data("seller");
+        if (profile_name == null) {
+            var currency_item = $(this).parents(".displayoffer");
+            profile_name = currency_item.data('username');
+        }
+
+        if (profile_name == null) {
+            return;
+        }
 
         var note = prompt('Enter custom note:', getProfileCustomNote(profile_name));
 
@@ -259,8 +314,4 @@ $(document).ready(function() {
             }
         }
     });
-
-    // Global buttons
-    var temp_string = '<table class="search-results"><tbody><tr><td><ul class="proplist"><li><a href="#" onclick="return false" class="global-block-btn">Block profile</a></li><li><a href="#" onclick="return false" class="global-unblock-btn">Unblock profile</a></li><li><a href="#" onclick="return false" class="global-note-btn">Edit profile note</a></li><li><a href="#" onclick="return false" class="global-info-btn">View stored profile info</a></li><li><a href="https://www.pathofexile.com/forum/view-thread/' + forum_thread_id + '" target="_blank">Script forum thread</a></li></ul></td></tr></tbody></table>';
-    document.querySelector('.protip').insertAdjacentHTML('afterend', temp_string);
 });
