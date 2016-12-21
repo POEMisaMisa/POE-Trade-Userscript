@@ -1,4 +1,4 @@
-// ==UserScript==
+﻿// ==UserScript==
 // @name        poe.trade View Profile + Blacklist + Custom notes
 // @description Adds view profile button to poe.trade search results and allows to blacklist user + add notes.
 // @include     http://poe.trade/*
