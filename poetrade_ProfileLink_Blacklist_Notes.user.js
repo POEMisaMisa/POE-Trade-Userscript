@@ -79,7 +79,7 @@ var updateCurrencyTradeItemNodes = function(results) {
         var is_blocked = isProfileBlacklisted(profile_name);
         var custom_note = getProfileCustomNote(profile_name);
 
-        var temp_string = (is_russian ? '<img src="http://i.imgur.com/tRDP5C9.png" alt="RU" title="This player is russian"> · ' : '') + '<a href="https://www.pathofexile.com/account/view-profile/' + profile_name + '" target="_blank" title="Click to open profile link in new tab">View profile</a> · <a href="#" onclick="return false" class="block-btn">' + (is_blocked ? 'Unblock' : 'Block') + '</a> · <a href="#" onclick="return false" class="note-btn" title="Click to edit">' + (custom_note === "" ? 'Edit note' : custom_note) + '</a> · ';
+        var temp_string = (is_russian ? '<img src="http://i.imgur.com/tRDP5C9.png" alt="RU" title="This player is russian"> Â· ' : '') + '<a href="https://www.pathofexile.com/account/view-profile/' + profile_name + '" target="_blank" title="Click to open profile link in new tab">View profile</a> Â· <a href="#" onclick="return false" class="block-btn">' + (is_blocked ? 'Unblock' : 'Block') + '</a> Â· <a href="#" onclick="return false" class="note-btn" title="Click to edit">' + (custom_note === "" ? 'Edit note' : custom_note) + '</a> Â· ';
 
         // Buttons
         item.querySelector('.right').insertAdjacentHTML('afterbegin', temp_string);
@@ -103,7 +103,7 @@ var observer = new MutationObserver(function(mutations) {
 });
 
 // Header buttons
-var temp_string = '<style type="text/css" id="filter-css">ul.filterlist{list-style-type:none;margin:0;padding:0}.filterlist li{display:inline}.filterlist li:after{content:" · "}.filterlist li:last-child:after{content:""}</style><table class="search-results"><tbody><tr><td><ul class="filterlist"><li><a href="#" onclick="return false" class="global-block-btn">Block profile</a></li><li><a href="#" onclick="return false" class="global-unblock-btn">Unblock profile</a></li><li><a href="#" onclick="return false" class="global-note-btn">Edit profile note</a></li><li><a href="#" onclick="return false" class="global-info-btn">View stored profile info</a></li><li><a href="https://www.pathofexile.com/forum/view-thread/' + forum_thread_id + '" target="_blank">Script forum thread</a></li></ul></td></tr></tbody></table>';
+var temp_string = '<style type="text/css" id="filter-css">ul.filterlist{list-style-type:none;margin:0;padding:0}.filterlist li{display:inline}.filterlist li:after{content:" Â· "}.filterlist li:last-child:after{content:""}</style><table class="search-results"><tbody><tr><td><ul class="filterlist"><li><a href="#" onclick="return false" class="global-block-btn">Block profile</a></li><li><a href="#" onclick="return false" class="global-unblock-btn">Unblock profile</a></li><li><a href="#" onclick="return false" class="global-note-btn">Edit profile note</a></li><li><a href="#" onclick="return false" class="global-info-btn">View stored profile info</a></li><li><a href="https://www.pathofexile.com/forum/view-thread/' + forum_thread_id + '" target="_blank">Script forum thread</a></li></ul></td></tr></tbody></table>';
 document.querySelector('.protip').insertAdjacentHTML('afterend', temp_string);
 
 // Append everything to search results
