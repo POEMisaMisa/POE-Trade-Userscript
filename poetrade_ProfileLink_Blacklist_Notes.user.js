@@ -5,7 +5,7 @@
 // @include     http://currency.poe.trade/*
 // @include     https://poe.trade/*
 // @include     https://currency.poe.trade/*
-// @version     1.4
+// @version     1.5
 // @author      MisaMisa, kylegetsspam, KHS_aAa, pollyzoid
 // @run-at      document-end
 // @grant       GM_getValue
@@ -82,7 +82,11 @@ var updateCurrencyTradeItemNodes = function(results) {
         var temp_string = (is_russian ? '<img src="http://i.imgur.com/tRDP5C9.png" alt="RU" title="This player is russian"> · ' : '') + '<a href="https://www.pathofexile.com/account/view-profile/' + profile_name + '" target="_blank" title="Click to open profile link in new tab">View profile</a> · <a href="#" onclick="return false" class="block-btn">' + (is_blocked ? 'Unblock' : 'Block') + '</a> · <a href="#" onclick="return false" class="note-btn" title="Click to edit">' + (custom_note === "" ? 'Edit note' : custom_note) + '</a> · ';
 
         // Buttons
-        item.querySelector('.right').insertAdjacentHTML('afterbegin', temp_string);
+        var right_element = item.querySelector('.right');
+        if (right_element !== null)
+        {
+            right_element.insertAdjacentHTML('afterbegin', temp_string);
+        }
 
         // Adjust opacity
         if (is_blocked) {
