@@ -5,13 +5,14 @@
 // @include     http://currency.poe.trade/*
 // @include     https://poe.trade/*
 // @include     https://currency.poe.trade/*
-// @version     1.5
-// @author      MisaMisa, kylegetsspam, KHS_aAa, pollyzoid
+// @version     1.6
+// @author      MisaMisa, kylegetsspam, KHS_aAa, pollyzoid, some parts of copy item code was inspired by Fikal script
 // @run-at      document-end
 // @grant       GM_getValue
 // @grant       GM_setValue
 // @grant       GM_deleteValue
 // @require     http://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js
+// @require     https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/1.6.0/clipboard.min.js
 // ==/UserScript==
 
 var forum_thread_id = 1741446;
@@ -64,6 +65,10 @@ var updateTradeItemNodes = function(results) {
         // Buttons
         item.querySelector('.bottom-row .third-cell').insertAdjacentHTML('beforeend', temp_string);
 
+        // Copy item button
+        temp_string = '<center><ul class="filterlist"><li><a href="#" onclick="return false" class="copy-item-btn" title="Copy item to clipboard so you can paste it to Path ob Building tool">Copy</a></li></ul></center>';
+        item.querySelector('.bottom-row .first-cell').insertAdjacentHTML('beforeend', temp_string);
+
         // Adjust opacity
         if (is_blocked) {
             item.style.opacity = 0.25;
@@ -83,8 +88,7 @@ var updateCurrencyTradeItemNodes = function(results) {
 
         // Buttons
         var right_element = item.querySelector('.right');
-        if (right_element !== null)
-        {
+        if (right_element !== null) {
             right_element.insertAdjacentHTML('afterbegin', temp_string);
         }
 
@@ -190,6 +194,240 @@ var updateAllElements = function(target_function, target_profile_name) {
     if (live_items_target) {
         target_function(live_items_target, target_profile_name, false);
     }
+};
+
+var itemTypesArray = [];
+var itemTypesArrayBuilt = false;
+
+function BuildItemTypesArray() {
+    if (itemTypesArrayBuilt) {
+        return;
+    }
+
+    var firstHTMLMarker = "var items_types =";
+    var secondHTMLMarker = "var previous = undefined;";
+
+    var copyFromPos = document.documentElement.innerHTML.search(firstHTMLMarker) + firstHTMLMarker.length;
+    var copyToPos = document.documentElement.innerHTML.search(secondHTMLMarker);
+
+    if ((copyFromPos == -1) || (copyToPos == -1)) {
+        return;
+    }
+
+    var itemTypesRaw = document.documentElement.innerHTML.substring(copyFromPos, copyToPos);
+
+    // Parse item types from raw item types
+    var notSupportedItemTypesArray = ["Breach", "Map", "Prophecy", "Gem", "Vaal Fragments", "Divination Card", "Leaguestone", "Essence", "Currency"];
+
+    var firstCleanupRegexp = '(';
+    for (var i = 0; i < notSupportedItemTypesArray.length; ++i) {
+        var currentNotSupportedItemType = notSupportedItemTypesArray[i];
+
+        if (i !== 0) {
+            firstCleanupRegexp += '|';
+        }
+        firstCleanupRegexp += '"' + currentNotSupportedItemType + '": \\[.*?](,|})';
+    }
+    firstCleanupRegexp += ')';
+
+    itemTypesRaw = itemTypesRaw.replace(new RegExp(firstCleanupRegexp, "g"), '');
+
+    itemTypesArray = itemTypesRaw.replace(/{|}|;|]|("(\w| )*?": \[)|"/g, '').trim().split(', ');
+
+    itemTypesArrayBuilt = true;
+}
+
+function PoeTradeItemInfo(div) {
+    this.htmlDiv = div;
+
+    this.getRarity = function() {
+        var rarityIndex = this.htmlDiv.find(".title").attr("class").match(/[0-9]/);
+        var rarityTypes = ["Normal", "Magic", "Rare", "Unique", "Gem", "Currency", "", "", "", "Relic"];
+
+        var resultRarityAsText = rarityTypes[Number(rarityIndex)];
+        var resultRarityID = Number(rarityIndex);
+
+        return [resultRarityAsText, resultRarityID];
+    };
+
+    this.getNameAndTypeAndCorruptionStatus = function() {
+        BuildItemTypesArray();
+
+        var fullTitle = this.htmlDiv.find(".title").text().trim();
+
+        var resultName = fullTitle;
+        var resultType = 'Unknown';
+
+        // Process corruption status
+        var corruptionRegexp = /^corrupted /;
+        var resultIsCorrupted = fullTitle.search(corruptionRegexp) !== -1;
+        if (resultIsCorrupted) {
+            fullTitle = fullTitle.replace(corruptionRegexp, '').trim();
+        }
+
+        for (var i = 0; i < itemTypesArray.length; ++i) {
+            var currentItemType = itemTypesArray[i];
+            if (fullTitle.indexOf(currentItemType) !== -1) {
+                resultName = fullTitle.replace(currentItemType, '').trim();
+                resultType = currentItemType.trim();
+                break;
+            }
+        }
+
+        return [resultName, resultType, resultIsCorrupted];
+    };
+
+    this.getLevel = function() {
+        return this.htmlDiv.find("span[data-name='ilvl']").text().replace("ilvl:", "").trim();
+    };
+
+    this.getQuality = function() {
+        return this.htmlDiv.find("td[data-name='q']").data("value");
+    };
+
+    this.getSockets = function() {
+        return this.htmlDiv.find(".sockets-raw").text().trim();
+    };
+
+    this.getImplicitMods = function() {
+        var resultImplicitModCount = 0;
+        var resultImplicit = '';
+
+        var [enchantedImplicitModCount, enchantedImplicit] = this.getEnchantedMods();
+
+        if (enchantedImplicit !== "")
+        {
+            resultImplicitModCount = enchantedImplicitModCount;
+            resultImplicit = enchantedImplicit;
+        }
+        else
+        {
+            var [normalImplicitModCount, normalImplicit] = this.getNormalImplicitMods();
+
+            resultImplicitModCount = normalImplicitModCount;
+            resultImplicit = normalImplicit;
+        }
+
+        return [resultImplicitModCount, resultImplicit];
+    };
+
+    this.getNormalImplicitMods = function() {
+        var resultNormalImplicitModCount = 0;
+        var resultNormalImplicit = '';
+
+        this.htmlDiv.find(".withline li").each(function() {
+            var that = $(this);
+
+            resultNormalImplicitModCount += 1;
+            resultNormalImplicit += that.text().trim() + '\r\n';
+        });
+
+        return [resultNormalImplicitModCount, resultNormalImplicit.trim()];
+    };
+
+    this.getEnchantedMods = function() {
+        var resultEnchantedImplicitModCount = 0;
+        var resultEnchantedImplicit = '';
+
+        this.htmlDiv.find("ul .mods:not(.withline) li").each(function() {
+            var that = $(this);
+
+            if (that.text().indexOf('enchanted') !== -1) {
+                resultEnchantedImplicitModCount += 1;
+                resultEnchantedImplicit += '{enchanted}' + that.text().replace("enchanted", "").trim() + '\r\n';
+            }
+        });
+
+        return [resultEnchantedImplicitModCount, resultEnchantedImplicit.trim()];
+    };
+
+    this.getExplicitMods = function() {
+        var resultExplicitModCount = 0;
+        var resultExplicit = '';
+
+        this.htmlDiv.find("ul .mods:not(.withline) li").each(function() {
+            var that = $(this);
+            if (that.text().indexOf('enchanted') === -1 &&
+                that.text().indexOf('crafted') === -1 &&
+                that.text().startsWith('total:') === false &&
+                that.text().indexOf('pseudo') === -1) {
+                resultExplicitModCount += 1;
+                resultExplicit += that.contents().not($("span")).text().trim() + '\r\n';
+            }
+        });
+
+        return [resultExplicitModCount, resultExplicit.trim()];
+    };
+
+    this.getCraftedMods = function() {
+        var resultCraftedModCount = 0;
+        var resultCrafted = '';
+
+        this.htmlDiv.find("ul .mods:not(.withline) li").each(function() {
+            var that = $(this);
+
+            if (that.text().indexOf('crafted') !== -1) {
+                resultCraftedModCount += 1;
+                resultCrafted += '{crafted}' + that.text().replace("crafted", "").trim() + '\r\n';
+            }
+        });
+
+        return [resultCraftedModCount, resultCrafted.trim()];
+    };
+}
+
+PoeTradeItemInfo.prototype.getItemParametersAsText = function() {
+    var result = '';
+
+    var [rarityAsText, rarityID] = this.getRarity();
+    if (rarityAsText !== '')  {
+        result += 'Rarity: ' + rarityAsText + '\r\n';
+    }
+
+    var [itemName, itemType, isItemCorrupted] = this.getNameAndTypeAndCorruptionStatus();
+
+    // At least rare?
+    if (rarityID > 1) {
+        result += itemName + '\r\n';
+    }
+    result += itemType + '\r\n';
+    result += 'Item Level: ' + this.getLevel() + '\r\n';
+
+    var quality = this.getQuality();
+    if (quality !== '') {
+        result += 'Quality: ' + quality + '\r\n';
+    }
+
+    var sockets = this.getSockets();
+    if (sockets !== '') {
+        result += 'Sockets: ' + sockets + '\r\n';
+    }
+
+    var [itemImplicitModCount, itemImplicit] = this.getImplicitMods();
+
+    result += 'Implicits: ' + itemImplicitModCount + '\r\n';
+
+    if (itemImplicit !== '') {
+        result += itemImplicit + '\r\n';
+    }
+
+    var [itemExplicitModCount, itemExplicit] = this.getExplicitMods();
+
+    if (itemExplicit !== '') {
+        result += itemExplicit + '\r\n';
+    }
+
+    var [itemCraftedModCount, itemCrafted] = this.getCraftedMods();
+
+    if (itemCrafted !== '') {
+        result += itemCrafted + '\r\n';
+    }
+
+    if (isItemCorrupted) {
+        result += 'Corrupted' + '\r\n';
+    }
+
+    return result.trim();
 };
 
 $(document).ready(function() {
@@ -317,5 +555,16 @@ $(document).ready(function() {
                 alert('Profile ' + profile_name + ' is ' + (is_blocked ? '' : 'not ') + 'blocked. Custom note' + (note === "" ? ' not set.' : ': ' + note));
             }
         }
+    });
+
+    // Copy item button handler
+    var copyItemClipboard = new Clipboard(".copy-item-btn", {
+        text: function(trigger) {
+            var poeTradeItemInfo = new PoeTradeItemInfo($(trigger).parents('[id^="item-container-"]'));
+            return poeTradeItemInfo.getItemParametersAsText();
+        }
+    });
+    copyItemClipboard.on("success", function(e) {
+        $(e.trigger).text("Copied");
     });
 });
