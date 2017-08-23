@@ -1,12 +1,12 @@
-﻿// ==UserScript==
+// ==UserScript==
 // @name        poe.trade View Profile + Blacklist + Custom notes + Copy Item
 // @description Adds view profile button to poe.trade search results and allows to blacklist user, add notes to them and copy item info to clipboard.
 // @include     http://poe.trade/*
 // @include     http://currency.poe.trade/*
 // @include     https://poe.trade/*
 // @include     https://currency.poe.trade/*
-// @version     1.6
-// @author      MisaMisa, kylegetsspam, KHS_aAa, pollyzoid, some parts of copy item code was inspired by Fikal script
+// @version     1.7
+// @author      MisaMisa, kylegetsspam, KHS_aAa, pollyzoid, Eruyome, some parts of copy item code was inspired by Fikal script
 // @run-at      document-end
 // @grant       GM_getValue
 // @grant       GM_setValue
@@ -196,11 +196,11 @@ var updateAllElements = function(target_function, target_profile_name) {
     }
 };
 
-var itemTypesArray = [];
-var itemTypesArrayBuilt = false;
+var itemTypesObject = {};
+var itemTypesObjectBuilt = false;
 
-function BuildItemTypesArray() {
-    if (itemTypesArrayBuilt) {
+function BuildItemTypesObject() {
+    if (itemTypesObjectBuilt) {
         return;
     }
 
@@ -229,12 +229,12 @@ function BuildItemTypesArray() {
         firstCleanupRegexp += '"' + currentNotSupportedItemType + '": \\[.*?](,|})';
     }
     firstCleanupRegexp += ')';
-
     itemTypesRaw = itemTypesRaw.replace(new RegExp(firstCleanupRegexp, "g"), '');
+    itemTypesRaw = itemTypesRaw.replace(/\;/g, '');
 
-    itemTypesArray = itemTypesRaw.replace(/{|}|;|]|("(\w| )*?": \[)|"/g, '').trim().split(', ');
+    itemTypesObj = JSON.parse(itemTypesRaw);
 
-    itemTypesArrayBuilt = true;
+    itemTypesObjectBuilt = true;
 }
 
 function PoeTradeItemInfo(div) {
@@ -250,13 +250,14 @@ function PoeTradeItemInfo(div) {
         return [resultRarityAsText, resultRarityID];
     };
 
-    this.getNameAndTypeAndCorruptionStatus = function() {
-        BuildItemTypesArray();
+    this.getNameAndTypeAndBaseAndCorruptionStatus = function() {
+        BuildItemTypesObject();
 
         var fullTitle = this.htmlDiv.find(".title").text().trim();
 
         var resultName = fullTitle;
         var resultType = 'Unknown';
+        var resultBase = 'Unknown';
 
         // Process corruption status
         var corruptionRegexp = /^corrupted /;
@@ -265,24 +266,138 @@ function PoeTradeItemInfo(div) {
             fullTitle = fullTitle.replace(corruptionRegexp, '').trim();
         }
 
-        for (var i = 0; i < itemTypesArray.length; ++i) {
-            var currentItemType = itemTypesArray[i];
-            if (fullTitle.indexOf(currentItemType) !== -1) {
-                resultName = fullTitle.replace(currentItemType, '').trim();
-                resultType = currentItemType.trim();
-                break;
+        var keyNames = Object.keys(itemTypesObj);
+        var j = 0;
+        for (var type in itemTypesObj) {
+            if (itemTypesObj.hasOwnProperty(type)) {
+                for (var i = 0; i < itemTypesObj[type].length; ++i) {
+                    var currentItemType = keyNames[j];
+                    var currentItemBase = itemTypesObj[type][i];
+                    if (fullTitle.indexOf(currentItemBase) !== -1) {
+                        resultName = fullTitle.replace(currentItemBase, '').trim();
+                        resultType = currentItemType.trim();
+                        resultBase = currentItemBase.trim();
+                        break;
+                    }
+                }
             }
+            j++;
         }
 
-        return [resultName, resultType, resultIsCorrupted];
+        if (resultType.match(/\sHand\s/gi)) {
+            resultType = resultType.replace(/(.*\sHand)(\s.*)/gi, '$1ed$2');
+        }
+
+        return [resultName, resultType, resultBase, resultIsCorrupted];
     };
+
+    this.getNamePreSuffix = function(name) {
+        var prefix = '';
+        var suffix = '';
+
+        var nameRegexp = /(\w+)?\s*(of.*)/gi;
+        var match = nameRegexp.exec(name);
+
+        if (match !== null) {
+            prefix = (match[1]) ? match[1].trim() + ' ' : '';
+            suffix = (match[2]) ? ' ' + match[2].trim() : '';            
+        }
+
+        return [prefix, suffix];
+    }
 
     this.getLevel = function() {
         return this.htmlDiv.find("span[data-name='ilvl']").text().replace("ilvl:", "").trim();
     };
 
+    this.getRequirements = function() {
+        var reqList = this.htmlDiv.find("ul.requirements > li");
+        var requirements = [];
+
+        reqList.each(function() {
+            var that = $(this);
+            var reqRegexp = /((Level)|(Str)|(Dex)|(Int)).*:\s+([0-9]+).*/gi;
+            var match = reqRegexp.exec(that.text());
+
+            if (match !== null) {
+                var temp = '';
+                match.forEach(function(element, index) {
+                    if (index <= 1) { return; }                         // skip first 2 elements, we don't need them
+                    else if (index == match.length - 1 && element) {
+                        temp += ': ' + element.trim();                  // should always be the requirements value
+                    }
+                    else if (element) {
+                        temp += element.trim();
+                    }
+                });
+                requirements.push(temp);
+            }
+        });
+        return requirements;
+    };
+
     this.getQuality = function() {
         return this.htmlDiv.find("td[data-name='q']").data("value");
+    };
+
+    this.getQualityNormalizeState = function() {
+        var capSpan = this.htmlDiv.find("td[data-name='q'] > span");
+        var state = capSpan.text().match(/\+/g);                        // check for a '+' in the quality text to determine if it's normalized
+        return state;
+    };
+
+    this.getQualityPhysDmg = function() {
+        var dmg = this.htmlDiv.find("td[data-name='quality_pd']").text().trim();
+        var dmgRegexp = /([0-9.]+)(\s*-\s*?)([0-9.]+)/gi;
+        var match = dmgRegexp.exec(dmg);
+
+        if (match !== null) {
+            dmg = (match[1]) ? Math.round(parseFloat(match[1])) : '';
+            dmg = (match[3]) ? dmg + '-' + Math.round(parseFloat(match[3])) : dmg;
+        }
+        return dmg;
+    };
+
+    this.getEleDmg = function(augmented) {
+        var dmg = this.htmlDiv.find("td[data-name='ed']").data("ed");
+        var dmgRegexp = /([0-9.]+)(\s*-\s*?)([0-9.]+),?/gi;
+        var match = dmgRegexp.exec(dmg);
+        var tmp = '';
+        var aug = augmented ? ' (augmented)' : '';
+
+        while (match !== null) {
+            tmp = (match[1]) ? tmp + Math.round(parseFloat(match[1])) : tmp;
+            tmp = (match[3]) ? tmp + '-' + Math.round(parseFloat(match[3])) : tmp;
+            tmp += aug + ', ';
+            match = dmgRegexp.exec(dmg);
+        }
+        dmg = tmp.replace(/,\s$/gi, '');
+
+        return dmg;
+    };
+
+    this.getAPS = function() {
+        return this.htmlDiv.find("td[data-name='aps']").data("value");
+    };
+
+    this.getCritChance = function() {
+        return this.htmlDiv.find("td[data-name='crit']").data("value");
+    };
+
+    this.getBlockChance = function() {
+        return this.htmlDiv.find("td[data-name='block']").data("value");
+    };
+
+    this.getQualityArmour = function() {
+        return this.htmlDiv.find("td[data-name='quality_armour']").data("value");
+    };
+
+    this.getQualityEvasion = function() {
+        return this.htmlDiv.find("td[data-name='quality_evasion']").data("value");
+    };
+
+    this.getQualityEnergyShield = function() {
+        return this.htmlDiv.find("td[data-name='quality_shield']").data("value");
     };
 
     this.getSockets = function() {
@@ -378,54 +493,158 @@ function PoeTradeItemInfo(div) {
 
 PoeTradeItemInfo.prototype.getItemParametersAsText = function() {
     var result = '';
+    var seperator = '--------' + '\r\n';
 
+    /* begin section */
     var [rarityAsText, rarityID] = this.getRarity();
     if (rarityAsText !== '')  {
         result += 'Rarity: ' + rarityAsText + '\r\n';
     }
 
-    var [itemName, itemType, isItemCorrupted] = this.getNameAndTypeAndCorruptionStatus();
+    var [itemName, itemType, itemBase, isItemCorrupted] = this.getNameAndTypeAndBaseAndCorruptionStatus();
+    var [itemExplicitModCount, itemExplicit] = this.getExplicitMods();
+    var [itemCraftedModCount, itemCrafted] = this.getCraftedMods();
+    var combinedExplicits = (itemExplicitModCount >= 1) ? itemExplicit : '';
+    combinedExplicits = (itemCraftedModCount >= 1) ? combinedExplicits + '\r\n' + itemCrafted : combinedExplicits;
+    var augmentedAPS = combinedExplicits.match(/^\d+% (increased|reduced) Attack Speed$/gim);
+    var augmentedPhysDmg = combinedExplicits.match(/^((Adds \d+ to \d+)|(\d+% increased|reduced)) (Physical) Damage$/gim);
+    var augmentedEleDmg = combinedExplicits.match(/^Adds \d+ to \d+ (Lightning|Fire|Cold) Damage$/gim);
+    var augmentedCrit = combinedExplicits.match(/^\d+% (increased|reduced) Critical Strike Chance$/gim);
+    var augmentedBlock = combinedExplicits.match(/^(-|\+)\d+% Chance to Block$/gim);
 
-    // At least rare?
+    // rare and higher
     if (rarityID > 1) {
         result += itemName + '\r\n';
+        result += itemBase + '\r\n';
     }
-    result += itemType + '\r\n';
-    result += 'Item Level: ' + this.getLevel() + '\r\n';
+    // magic 
+    else if (rarityID = 1) {
+        var [namePrefix, nameSuffix] = this.getNamePreSuffix(itemName);
+        result += (namePrefix + itemBase + nameSuffix) + '\r\n';
+    }
+    result += seperator;
+
+    /* begin section */
+    var isWeapon = false;
+    if (!itemType.match(/^(Amulet|Belt|Body Armour|Boots|Flask|Gloves|Helmet|Jewel|Quiver|Ring|Shield)$/gi)) {
+        result += itemType  + '\r\n';
+        isWeapon = true;
+    }
 
     var quality = this.getQuality();
-    if (quality !== '') {
-        result += 'Quality: ' + quality + '\r\n';
+    var qualityCapped = (this.getQualityNormalizeState() || quality == '20') ? true : false;
+    var hasQuality = false;
+    if (quality !== '' && (quality >= 1 || qualityCapped)) {
+        hasQuality = true;
+        result += 'Quality: ' + (qualityCapped ? '+20' : '+' + quality) + '% (augmented)' + '\r\n';
+    }
+    var physDmg = this.getQualityPhysDmg();
+    if (physDmg !== '') {
+        result += 'Physical Damage: ' + physDmg + (hasQuality ? ' (augmented)' : '') + '\r\n';
+    }
+    var eleDmg = this.getEleDmg(augmentedEleDmg);
+    if (eleDmg !== '') {
+        result += 'Elemental Damage: ' + eleDmg + '\r\n';
+    }
+    var blockChance = this.getBlockChance();
+    if (critChance !== '' && critChance > 0) {
+        result += 'Chance to Block: ' + blockChance + '%' + (augmentedBlock ? ' (augmented)' : '') + '\r\n';
+    }
+    var armour = this.getQualityArmour();
+    if (armour !== '' && armour > 0) {
+        result += 'Armour: ' + armour + (hasQuality ? ' (augmented)' : '') + '\r\n';
+    }
+    var evasion = this.getQualityEvasion();
+    if (evasion !== '' && evasion > 0) {
+        result += 'Evasion Rating: ' + evasion + (hasQuality ? ' (augmented)' : '') + '\r\n';
+    }
+    var energyShield = this.getQualityEnergyShield();
+    if (energyShield !== '' && energyShield > 0) {
+        result += 'Energy Shield: ' + energyShield + (hasQuality ? ' (augmented)' : '') + '\r\n';
+    }
+    var critChance = this.getCritChance();
+    if (critChance !== '' && critChance > 0) {
+        result += 'Critical Strike Chance: ' + critChance + '%' + (augmentedCrit ? ' (augmented)' : '') + '\r\n';
+    }
+    var aps = this.getAPS();
+    if (aps !== '' && aps > 0) {
+        result += 'Attacks per Second: ' + aps + (augmentedAPS ? ' (augmented)' : '') + '\r\n';
     }
 
+    if (isWeapon) {
+        result += 'Weapon Range: Unknown' + '\r\n';
+    }
+
+    if (!itemType.match(/^(Amulet|Belt|Jewel|Quiver|Ring)$/gi)) {        
+        result += seperator;
+    }
+
+    /* begin section */
+    var requirements = this.getRequirements();
+    if (requirements.length) {
+        result += 'Requirements:' + "\r\n";
+        requirements.forEach(function(element) {
+            result += element + '\r\n';
+        });
+        result += seperator;
+    }
+
+    /* begin section */
     var sockets = this.getSockets();
     if (sockets !== '') {
         result += 'Sockets: ' + sockets + '\r\n';
+        result += seperator;
     }
 
-    var [itemImplicitModCount, itemImplicit] = this.getImplicitMods();
+    /* begin section */
+    result += 'Item Level: ' + this.getLevel() + '\r\n';
+    result += seperator;
 
-    result += 'Implicits: ' + itemImplicitModCount + '\r\n';
+    /* begin section */
+    var [itemImplicitModCount, itemImplicit] = this.getImplicitMods();
 
     if (itemImplicit !== '') {
         result += itemImplicit + '\r\n';
     }
 
-    var [itemExplicitModCount, itemExplicit] = this.getExplicitMods();
-
-    if (itemExplicit !== '') {
-        result += itemExplicit + '\r\n';
+    /* begin section */
+    if (combinedExplicits !== '') {
+        if (itemImplicitModCount >= 1) {            
+            result += seperator;
+        }
+        result += combinedExplicits + '\r\n';
     }
 
-    var [itemCraftedModCount, itemCrafted] = this.getCraftedMods();
-
-    if (itemCrafted !== '') {
-        result += itemCrafted + '\r\n';
+    /* begin section */
+    if (rarityID == 3) {                                // unique
+        if (combinedExplicits !== '') {
+            result += seperator;
+        }
+        result += 'Some unknown flavour text here.' + '\r\n';
+    }
+    if (itemType.match(/^Jewel$/gi)) {
+        if (rarityID == 3 || combinedExplicits !== '') {
+            result += seperator;    
+        }
+        result += 'Place into an allocated Jewel Socket on the Passive Skill Tree. Right click to remove from the Socket.' + '\r\n';
+    }
+    else if (itemType.match(/^Flask$/gi)) {        
+        if (rarityID == 3 || combinedExplicits !== '') {
+            result += seperator;    
+        }
+        result += 'Right click to drink. Can only hold charges while in belt. Refills as you kill monsters.' + '\r\n';
     }
 
-    if (isItemCorrupted) {
+    if (isItemCorrupted) {        
+        if (rarityID == 3 || combinedExplicits !== '') {
+            result += seperator;    
+        }
         result += 'Corrupted' + '\r\n';
     }
+
+    //result += 'Implicits: ' + itemImplicitModCount + '\r\n';
+    //result += 'Explicits: ' + itemExplicitModCount + '\r\n';
+    //result += 'Crafted Mods: ' + itemCraftedModCount + '\r\n';
 
     return result.trim();
 };
