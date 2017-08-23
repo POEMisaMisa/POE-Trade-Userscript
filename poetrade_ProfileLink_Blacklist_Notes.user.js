@@ -300,11 +300,11 @@ function PoeTradeItemInfo(div) {
 
         if (match !== null) {
             prefix = (match[1]) ? match[1].trim() + ' ' : '';
-            suffix = (match[2]) ? ' ' + match[2].trim() : '';            
+            suffix = (match[2]) ? ' ' + match[2].trim() : '';
         }
 
         return [prefix, suffix];
-    }
+    };
 
     this.getLevel = function() {
         return this.htmlDiv.find("span[data-name='ilvl']").text().replace("ilvl:", "").trim();
@@ -493,7 +493,7 @@ function PoeTradeItemInfo(div) {
 
 PoeTradeItemInfo.prototype.getItemParametersAsText = function() {
     var result = '';
-    var seperator = '--------' + '\r\n';
+    var separator = '--------' + '\r\n';
 
     /* begin section */
     var [rarityAsText, rarityID] = this.getRarity();
@@ -517,12 +517,12 @@ PoeTradeItemInfo.prototype.getItemParametersAsText = function() {
         result += itemName + '\r\n';
         result += itemBase + '\r\n';
     }
-    // magic 
-    else if (rarityID = 1) {
+    // magic
+    else if (rarityID == 1) {
         var [namePrefix, nameSuffix] = this.getNamePreSuffix(itemName);
         result += (namePrefix + itemBase + nameSuffix) + '\r\n';
     }
-    result += seperator;
+    result += separator;
 
     /* begin section */
     var isWeapon = false;
@@ -575,8 +575,8 @@ PoeTradeItemInfo.prototype.getItemParametersAsText = function() {
         result += 'Weapon Range: Unknown' + '\r\n';
     }
 
-    if (!itemType.match(/^(Amulet|Belt|Jewel|Quiver|Ring)$/gi)) {        
-        result += seperator;
+    if (!itemType.match(/^(Amulet|Belt|Jewel|Quiver|Ring)$/gi)) {
+        result += separator;
     }
 
     /* begin section */
@@ -586,19 +586,19 @@ PoeTradeItemInfo.prototype.getItemParametersAsText = function() {
         requirements.forEach(function(element) {
             result += element + '\r\n';
         });
-        result += seperator;
+        result += separator;
     }
 
     /* begin section */
     var sockets = this.getSockets();
     if (sockets !== '') {
         result += 'Sockets: ' + sockets + '\r\n';
-        result += seperator;
+        result += separator;
     }
 
     /* begin section */
     result += 'Item Level: ' + this.getLevel() + '\r\n';
-    result += seperator;
+    result += separator;
 
     /* begin section */
     var [itemImplicitModCount, itemImplicit] = this.getImplicitMods();
@@ -609,8 +609,8 @@ PoeTradeItemInfo.prototype.getItemParametersAsText = function() {
 
     /* begin section */
     if (combinedExplicits !== '') {
-        if (itemImplicitModCount >= 1) {            
-            result += seperator;
+        if (itemImplicitModCount >= 1) {
+            result += separator;
         }
         result += combinedExplicits + '\r\n';
     }
@@ -618,26 +618,26 @@ PoeTradeItemInfo.prototype.getItemParametersAsText = function() {
     /* begin section */
     if (rarityID == 3) {                                // unique
         if (combinedExplicits !== '') {
-            result += seperator;
+            result += separator;
         }
         result += 'Some unknown flavour text here.' + '\r\n';
     }
     if (itemType.match(/^Jewel$/gi)) {
         if (rarityID == 3 || combinedExplicits !== '') {
-            result += seperator;    
+            result += separator;
         }
         result += 'Place into an allocated Jewel Socket on the Passive Skill Tree. Right click to remove from the Socket.' + '\r\n';
     }
-    else if (itemType.match(/^Flask$/gi)) {        
+    else if (itemType.match(/^Flask$/gi)) {
         if (rarityID == 3 || combinedExplicits !== '') {
-            result += seperator;    
+            result += separator;
         }
         result += 'Right click to drink. Can only hold charges while in belt. Refills as you kill monsters.' + '\r\n';
     }
 
-    if (isItemCorrupted) {        
+    if (isItemCorrupted) {
         if (rarityID == 3 || combinedExplicits !== '') {
-            result += seperator;    
+            result += separator;
         }
         result += 'Corrupted' + '\r\n';
     }
