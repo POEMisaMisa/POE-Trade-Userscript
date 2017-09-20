@@ -5,7 +5,7 @@
 // @include     http://currency.poe.trade/*
 // @include     https://poe.trade/*
 // @include     https://currency.poe.trade/*
-// @version     1.7
+// @version     1.8
 // @author      MisaMisa, kylegetsspam, KHS_aAa, pollyzoid, Eruyome, some parts of copy item code was inspired by Fikal script
 // @run-at      document-end
 // @grant       GM_getValue
@@ -60,7 +60,7 @@ var updateTradeItemNodes = function(results) {
         var is_blocked = isProfileBlacklisted(profile_name);
         var custom_note = getProfileCustomNote(profile_name);
 
-        var temp_string = '<ul class="filterlist">' + (is_russian ? '<li><img src="http://i.imgur.com/tRDP5C9.png" alt="RU" title="This player is russian"></li>' : '') + '<li><a href="https://www.pathofexile.com/account/view-profile/' + profile_name + '" target="_blank" title="Click to open profile link in new tab"><span class="custom-profile-link">' + profile_name + '</span> - View profile</a></li><li><a href="#" onclick="return false" class="block-btn">' + (is_blocked ? 'Unblock' : 'Block') + '</a></li><li><a href="#" onclick="return false" class="note-btn" title="Click to edit">' + (custom_note === "" ? 'Edit note' : custom_note) + '</a></li></ul>';
+        var temp_string = '<ul class="filterlist">' + (is_russian ? '<li><img src="http://i.imgur.com/tRDP5C9.png" alt="RU" title="This player is russian"></li>' : '') + '<li><a href="https://www.pathofexile.com/account/view-profile/' + profile_name + '" target="_blank" title="Click to open profile link in new tab"><span class="custom-profile-link">' + profile_name + '</span></a></li><li><a href="#" onclick="return false" class="block-btn">' + (is_blocked ? 'Unblock' : 'Block') + '</a></li><li><a href="#" onclick="return false" class="note-btn" title="Click to edit">' + (custom_note === "" ? 'Edit note' : custom_note) + '</a></li></ul>';
 
         // Buttons
         item.querySelector('.bottom-row .third-cell').insertAdjacentHTML('beforeend', temp_string);
@@ -73,7 +73,7 @@ var updateTradeItemNodes = function(results) {
         if (is_blocked) {
             item.style.opacity = 0.25;
         }
-        $(item).find('span.custom-profile-link').css( "color", "#da3c3c" );
+        $(item).find('span.custom-profile-link').css("color", "#BBBBBB");
     });
 };
 
@@ -85,7 +85,7 @@ var updateCurrencyTradeItemNodes = function(results) {
         var is_blocked = isProfileBlacklisted(profile_name);
         var custom_note = getProfileCustomNote(profile_name);
 
-        var temp_string = (is_russian ? '<img src="http://i.imgur.com/tRDP5C9.png" alt="RU" title="This player is russian"> · ' : '') + '<a href="https://www.pathofexile.com/account/view-profile/' + profile_name + '" target="_blank" title="Click to open profile link in new tab"><span class="custom-profile-link">' + profile_name + '</span> - View profile</a> · <a href="#" onclick="return false" class="block-btn">' + (is_blocked ? 'Unblock' : 'Block') + '</a> · <a href="#" onclick="return false" class="note-btn" title="Click to edit">' + (custom_note === "" ? 'Edit note' : custom_note) + '</a> · ';
+        var temp_string = (is_russian ? '<img src="http://i.imgur.com/tRDP5C9.png" alt="RU" title="This player is russian"> · ' : '') + '<a href="https://www.pathofexile.com/account/view-profile/' + profile_name + '" target="_blank" title="Click to open profile link in new tab"><span class="custom-profile-link">' + profile_name + '</span></a> · <a href="#" onclick="return false" class="block-btn">' + (is_blocked ? 'Unblock' : 'Block') + '</a> · <a href="#" onclick="return false" class="note-btn" title="Click to edit">' + (custom_note === "" ? 'Edit note' : custom_note) + '</a> · ';
 
         // Buttons
         var right_element = item.querySelector('.right');
@@ -97,7 +97,7 @@ var updateCurrencyTradeItemNodes = function(results) {
         if (is_blocked) {
             item.style.opacity = 0.25;
         }
-        $(item).find('span.custom-profile-link').css( "color", "#da3c3c" );
+        $(item).find('span.custom-profile-link').css("color", "#BBBBBB");
     });
 };
 
@@ -495,7 +495,7 @@ function PoeTradeItemInfo(div) {
 
 PoeTradeItemInfo.prototype.getItemParametersAsText = function() {
     var result = '';
-    var seperator = '--------' + '\r\n';
+    var separator = '--------' + '\r\n';
 
     /* begin section */
     var [rarityAsText, rarityID] = this.getRarity();
@@ -524,7 +524,7 @@ PoeTradeItemInfo.prototype.getItemParametersAsText = function() {
         var [namePrefix, nameSuffix] = this.getNamePreSuffix(itemName);
         result += (namePrefix + itemBase + nameSuffix) + '\r\n';
     }
-    result += seperator;
+    result += separator;
 
     /* begin section */
     var isWeapon = false;
@@ -578,7 +578,7 @@ PoeTradeItemInfo.prototype.getItemParametersAsText = function() {
     }
 
     if (!itemType.match(/^(Amulet|Belt|Jewel|Quiver|Ring)$/gi)) {
-        result += seperator;
+        result += separator;
     }
 
     /* begin section */
@@ -588,19 +588,19 @@ PoeTradeItemInfo.prototype.getItemParametersAsText = function() {
         requirements.forEach(function(element) {
             result += element + '\r\n';
         });
-        result += seperator;
+        result += separator;
     }
 
     /* begin section */
     var sockets = this.getSockets();
     if (sockets !== '') {
         result += 'Sockets: ' + sockets + '\r\n';
-        result += seperator;
+        result += separator;
     }
 
     /* begin section */
     result += 'Item Level: ' + this.getLevel() + '\r\n';
-    result += seperator;
+    result += separator;
 
     /* begin section */
     var [itemImplicitModCount, itemImplicit] = this.getImplicitMods();
@@ -612,7 +612,7 @@ PoeTradeItemInfo.prototype.getItemParametersAsText = function() {
     /* begin section */
     if (combinedExplicits !== '') {
         if (itemImplicitModCount >= 1) {
-            result += seperator;
+            result += separator;
         }
         result += combinedExplicits + '\r\n';
     }
@@ -620,26 +620,26 @@ PoeTradeItemInfo.prototype.getItemParametersAsText = function() {
     /* begin section */
     if (rarityID == 3) {                                // unique
         if (combinedExplicits !== '') {
-            result += seperator;
+            result += separator;
         }
         result += 'Some unknown flavour text here.' + '\r\n';
     }
     if (itemType.match(/^Jewel$/gi)) {
         if (rarityID == 3 || combinedExplicits !== '') {
-            result += seperator;
+            result += separator;
         }
         result += 'Place into an allocated Jewel Socket on the Passive Skill Tree. Right click to remove from the Socket.' + '\r\n';
     }
     else if (itemType.match(/^Flask$/gi)) {
         if (rarityID == 3 || combinedExplicits !== '') {
-            result += seperator;
+            result += separator;
         }
         result += 'Right click to drink. Can only hold charges while in belt. Refills as you kill monsters.' + '\r\n';
     }
 
     if (isItemCorrupted) {
         if (rarityID == 3 || combinedExplicits !== '') {
-            result += seperator;
+            result += separator;
         }
         result += 'Corrupted' + '\r\n';
     }
